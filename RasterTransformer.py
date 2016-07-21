@@ -72,7 +72,7 @@ class Options:
 			elif opt.lower() in ("-f", "-outputformat" "--outputformat", "/f", "/outputformat"):
 				if(arg.lower() in ("gtiff", "geotiff", "tiff")):
 					self.OutputFormat = ImageFormat.GTiff
-				elif(arg.lower() in ("hfa", "img", "erdas")):
+				elif(arg.lower() in ("hfa", "img", "erdas", "erdasimg")):
 					self.OutputFormat = ImageFormat.HFA
 				else:
 					LogError("The specified output format is not supported: " + arg)
@@ -96,11 +96,23 @@ class Options:
 			LogError("The sensor format is not specified!")
 	
 def Usage():
-	print 'Usage: python RasterTransformer.py -i <input> -o <output> -f <outputFormat> -s <sensor>'
+	print 'Usage: python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>'
 	sys.exit(2)
 	
 def LongUsage():
-	print 'Usage: python RasterTransformer.py [--help] [--outputFormat] [--projection]', '--sensor --input --output'.rjust(30)
+	print 'Usage: python RasterTransformer.py'
+	print "Parameters:" 
+	parameters = [
+		('-i, --input', 'The input file or folder.'),
+		('-o, --output', 'The output file or folder.'),
+		('-s, --sensor', 'The input sensor format (Sentinel, Landsat, SPOT).'),
+		('', ''),
+		('[-f, --outputFormat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
+		('[-p, --projection]',  'The target projection.')]
+
+	for helpKey, helpText in parameters:
+		print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
+
 	sys.exit(2)
 	
 def LogError(text):
