@@ -58,25 +58,25 @@ class Options:
 				Usage()
 			
 		except getopt.GetoptError as err:
-			print "Error occured parsing the arguments!"
+			print "Error occured parsing the arguments: " + str(err)
 			Usage()
 		for opt, arg in opts:
-			if opt in ("-h", "-help", "--help", "/h", "/help"):
+			if opt in ("-h", "--help"):
 				LongUsage()
-			elif opt in ("-i", "-input" "--input", "/i", "/input"):
+			elif opt in ("-i", "--input"):
 				self.Input = path.abspath(arg)
-			elif opt in ("-o", "-output" "--output" "/o", "/output"):
+			elif opt in ("-o", "--output"):
 				self.Output = path.abspath(arg)
 				if(arg.endswith(os.sep)):
 					self.Output += os.sep
-			elif opt.lower() in ("-f", "-outputformat" "--outputformat", "/f", "/outputformat"):
+			elif opt.lower() in ("-f", "--outputformat"):
 				if(arg.lower() in ("gtiff", "geotiff", "tiff")):
 					self.OutputFormat = ImageFormat.GTiff
 				elif(arg.lower() in ("hfa", "img", "erdas", "erdasimg")):
 					self.OutputFormat = ImageFormat.HFA
 				else:
 					LogError("The specified output format is not supported: " + arg)
-			elif opt in ("-s", "-sensor", "--sensor", "/s", "/sensor"):
+			elif opt in ("-s", "--sensor"):
 				if(arg.lower() in ("sentinel_2", "sentinel2", "sentinel")):
 					self.Sensor = SensorFormat.Sentinel_2
 				elif(arg.lower() == "landsat"):
@@ -85,12 +85,12 @@ class Options:
 					self.Sensor = SensorFormat.SPOT
 				else:
 					LogError("The specified sensor is not supported!")
-			elif opt in ("-p", "-projection" "--projection", "/p", "/projection"):
+			elif opt in ("-p", "--projection"):
 				self.Projection = arg
 				
 		if(self.Input == ''):
 			LogError("The input is not specified!")
-		if(sef.Output == ''):
+		if(self.Output == ''):
 			LogError("The output is not specified!")
 		if(self.Sensor == SensorFormat.Unknown):
 			LogError("The sensor format is not specified!")
