@@ -8,23 +8,23 @@ import re
 
 class ImageFormat:
 	""" Represents an image format. """
-    GTiff, HFA = range(2)
-	
-    @staticmethod
-    def ToString(format):
-		""" Returns the string representation of the image format. """
-        if(format == ImageFormat.GTiff):
-            return "GTiff"
-        if(format == ImageFormat.HFA):
-            return "HFA"
+	GTiff, HFA = range(2)
 
-    @staticmethod
-    def Extension(format):
-		""" Returns the extension of the image format. """
-        if(format == ImageFormat.GTiff):
-            return ".tif"
-        if(format == ImageFormat.HFA):
-            return ".img"
+	@staticmethod
+	def ToString(format):
+                """ Returns the string representation of the image format. """
+                if(format == ImageFormat.GTiff):
+                        return "GTiff"
+                if(format == ImageFormat.HFA):
+                        return "HFA"
+
+	@staticmethod
+	def Extension(format):
+                """ Returns the extension of the image format. """
+                if(format == ImageFormat.GTiff):
+                    return ".tif"
+                if(format == ImageFormat.HFA):
+                    return ".img"
 
 class Sensor:
 	""" Represents a sensor format """
@@ -118,6 +118,10 @@ def LogError(text):
 	""" Prints error information. """
 	print 'Error occurred: ' + text
 	sys.exit(2)
+
+def LogWarning(text):
+		""" Prints warning information. """
+		print 'Warning: ' + text
 
 def main(argv):
     options = Options(argv)
@@ -238,8 +242,11 @@ def ConvertFromLandsat(options):
 	""" Converts a landsat dataset to a specified output image. """
 	if(path.isfile(options.Input)):
 		options.Input = path.dirname(options.Input)
-		
+	
+	print "Converting Landsat under the specified path: " + options.Input
+
 	landsatFiles = []
+	metadadataFile = ""
 		
 	for root, dirs, files in os.walk(options.Input):
 		for file in files:
@@ -251,9 +258,13 @@ def ConvertFromLandsat(options):
 	
 	imageFilesInOrder = []
 	for band in Sensor.GetBandsForSensor(Sensor.Landsat) :
-		imageFile = next(x for x in landsatFiles if x.upper().endswith(band + ".TIF"))
-		imageFilesInOrder.append(path.join(options.Input, imageFile))
+		imageWithBand = [x for x in landsatFiles if x.upper().endswith(band + ".TIF")]
+		if(len(imageWithBand) != 1):
+			LogWarning("Cannot find the appropriate file for " + band + " band!")
+		else:
+			imageFilesInOrder.append(path.join(options.Input, imageWithBand[0]))
 	
+	print "Building VRT from the files..."
 	vrt = gdal.BuildVRT("", imageFilesInOrder, **{'separate':'true'})
 	
 	if(path.isdir(options.Output) or options.Output.endswith(os.sep)):
@@ -274,8 +285,14 @@ def ConvertFromLandsat(options):
 	
 	warpOptions = BuildWarpOptions(options)
 	
+	print "Translating VRT to the specified output..."
 	gdal.Warp(outputFile, vrt, **warpOptions)
-	copyfile(metadataFile, outputMetadata)
+	
+	if(metadataFile != ""):
+		print "Copying the metadata file..."	
+		copyfile(metadataFile, outputMetadata)
+	
+	print "Done."
 	
 def ConvertFromSpot(options):
 	""" Converts a SPOT dataset to a specified output image. """
