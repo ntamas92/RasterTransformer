@@ -106,7 +106,7 @@ def LongUsage():
 		('-o, --output', 'The output file or folder.'),
 		('-s, --sensor', 'The input sensor (Sentinel, Landsat, SPOT).'),
 		('', ''),
-		('[-f, --outputFormat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
+		('[-f, --outputformat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
 		('[-p, --projection]',  'The target projection.')]
 
 	for helpKey, helpText in parameters:
