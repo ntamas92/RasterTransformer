@@ -50,7 +50,7 @@ class Options:
 		self.Projection = ""
 
 		try:
-			opts, args = getopt.getopt(argv,"hi:o:f:s:p:",["help", "input=","output=", "outputFormat=", "sensor=" "projection="])
+			opts, args = getopt.getopt(argv,"hi:o:f:s:p:",["help", "input=","output=", "outputformat=", "sensor=" "projection="])
 			if(len(opts) == 0):
 				Usage()
 		except getopt.GetoptError as err:
