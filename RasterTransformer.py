@@ -296,6 +296,7 @@ def ConvertFromLandsat(options):
 	
 def ConvertFromSpot(options):
 	""" Converts a SPOT dataset to a specified output image. """
+	LogError("Converting from a SPOT dataset is not implemented!")
 	pass
 
 def BuildWarpOptions(options):
