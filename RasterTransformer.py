@@ -7,10 +7,12 @@ import time
 import re
 
 class ImageFormat:
-    GTiff, HFA, JP2000 = range(3)
+	""" Represents an image format. """
+    GTiff, HFA = range(2)
 	
     @staticmethod
     def ToString(format):
+		""" Returns the string representation of the image format. """
         if(format == ImageFormat.GTiff):
             return "GTiff"
         if(format == ImageFormat.HFA):
@@ -18,15 +20,19 @@ class ImageFormat:
 
     @staticmethod
     def Extension(format):
+		""" Returns the extension of the image format. """
         if(format == ImageFormat.GTiff):
             return ".tif"
         if(format == ImageFormat.HFA):
             return ".img"
 
 class Sensor:
+	""" Represents a sensor format """
 	Sentinel_2, Landsat, SPOT, Unknown = range(4)  
 
+	@staticmethod
 	def GetBandsForSensor(sensor):
+		""" Gets the bands for a specific sensor in order. """
 		if(sensor == Sensor.Landsat):
 			return ["_B1","_B2","_B3","_B4","_B5","_B6","_B7","_B8","_B9","_B10","_B11","_BQA"]
 		elif(sensor == Sensor.Sentinel_2):
@@ -35,6 +41,7 @@ class Sensor:
 			return None
 	
 class Options:
+	""" Represents the options for running the script """
 	def __init__(self, argv):
 		self.Input = ""
 		self.Output = ""
@@ -46,10 +53,10 @@ class Options:
 			opts, args = getopt.getopt(argv,"hi:o:f:s:p:",["help", "input=","output=", "outputFormat=", "sensor=" "projection="])
 			if(len(opts) == 0):
 				Usage()
-			
 		except getopt.GetoptError as err:
 			print "Error occured parsing the arguments: " + str(err)
 			Usage()
+
 		for opt, arg in opts:
 			if opt in ("-h", "--help"):
 				LongUsage()
@@ -74,7 +81,7 @@ class Options:
 				elif(arg.lower() == "spot"):
 					self.Sensor = Sensor.SPOT
 				else:
-					LogError("The specified sensor is not supported!")
+					LogError("The specified sensor is not supported: " + arg)
 			elif opt in ("-p", "--projection"):
 				self.Projection = arg
 				
@@ -86,10 +93,12 @@ class Options:
 			LogError("The input sensor is not specified!")
 	
 def Usage():
+	""" Prints usage information about running the script. """
 	print 'Usage: python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>'
 	sys.exit(2)
 	
 def LongUsage():
+	""" Prints detailed usage information about running the script. """
 	print 'Usage: python RasterTransformer.py'
 	print "Parameters:" 
 	parameters = [
@@ -105,10 +114,10 @@ def LongUsage():
 
 	sys.exit(2)
 	
-def LogError(text, fatal = True):
+def LogError(text):
+	""" Prints error information. """
 	print 'Error occurred: ' + text
-	if (fatal):
-		sys.exit(2)
+	sys.exit(2)
 
 def main(argv):
     options = Options(argv)
@@ -126,6 +135,7 @@ def main(argv):
         LogError("The specified sensor is not supported!")
 
 def ConvertFromSentinel(options):
+	""" Converts a sentinel dataset or tile to a specified output image. """
 	if(path.isdir(options.Input)):
 		metadataFileExpression = "2A_OPER_MTD_SAFL1C_(.*)\.xml"
 		metadataFound = False
@@ -145,6 +155,7 @@ def ConvertFromSentinel(options):
 
 
 def ConvertFromSentinelTile(options):
+	""" Converts a sentinel tile to a specified output image. """
 	vrt = GetVRTFromSentinelTile(options.Input)
 	
 	if(path.isdir(options.Output) or options.Output.endswith(os.sep)):
@@ -165,6 +176,7 @@ def ConvertFromSentinelTile(options):
 	
 			
 def ConvertFromSentinelDataset(options):
+	""" Converts a sentinel dataset to a specified output image. """
 	dataset = gdal.Open(options.Input)        
 	if(dataset == None):
 		LogError("The specified input cannot be opened as a Sentinel-2 dataset!")
@@ -211,7 +223,8 @@ def ConvertFromSentinelDataset(options):
 	gdal.Warp(outputFile, vrts, **warpOptions)
 	copyfile(options.Input, outputMetadata)
 
-def GetVRTFromSentinelTile(tilePath):        
+def GetVRTFromSentinelTile(tilePath):
+	""" Gets a Virtual Raster Table (VRT) for a sentinel tile. """  
 	imageFilesInOrder = []
 	files = os.listdir(tilePath)
 	for band in Sensor.GetBandsForSensor(Sensor.Sentinel_2) :
@@ -222,6 +235,7 @@ def GetVRTFromSentinelTile(tilePath):
 
 	
 def ConvertFromLandsat(options):
+	""" Converts a landsat dataset to a specified output image. """
 	if(path.isfile(options.Input)):
 		options.Input = path.dirname(options.Input)
 		
@@ -264,9 +278,11 @@ def ConvertFromLandsat(options):
 	copyfile(metadataFile, outputMetadata)
 	
 def ConvertFromSpot(options):
+	""" Converts a SPOT dataset to a specified output image. """
 	pass
 
 def BuildWarpOptions(options):
+	""" Builds GDALWarpOptions for the Warp method based on the input parameters. """
 	warpOptions = {'format':ImageFormat.ToString(options.OutputFormat)}
 	
 	if(options.OutputFormat == ImageFormat.GTiff):
