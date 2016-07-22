@@ -1,8 +1,7 @@
 from osgeo import gdal
 from os import path
 from shutil import copyfile
-import os
-import sys
+import os, sys
 import getopt
 import time
 import re
@@ -24,32 +23,23 @@ class ImageFormat:
         if(format == ImageFormat.HFA):
             return ".img"
 
-class SensorFormat:
-	Sentinel_2, Landsat, SPOT, Unknown = range(4)
-	
-	@staticmethod
-	def ToString(format):
-		if(format == SensorFormat.Sentinel_2):
-			return "Sentinel-2"
-		if(format == SensorFormat.Landsat):
-			return "Landsat"
-		if(format == SensorFormat.SPOT):
-			return "SPOT"            
+class Sensor:
+	Sentinel_2, Landsat, SPOT, Unknown = range(4)  
 
-class Bands:
-	@staticmethod
-	def GetBandsForSensor(sensorFormat):
-		if(sensorFormat == SensorFormat.Landsat):
+	def GetBandsForSensor(sensor):
+		if(sensor == Sensor.Landsat):
 			return ["_B1","_B2","_B3","_B4","_B5","_B6","_B7","_B8","_B9","_B10","_B11","_BQA"]
-		elif(sensorFormat == SensorFormat.Sentinel_2):
+		elif(sensor == Sensor.Sentinel_2):
 			return ["_B01","_B02","_B03","_B04","_B05","_B06","_B07","_B08","_B8A","_B09","_B10","_B11","_B12"]
+		else:
+			return None
 	
 class Options:
 	def __init__(self, argv):
 		self.Input = ""
 		self.Output = ""
 		self.OutputFormat = ImageFormat.GTiff
-		self.Sensor = SensorFormat.Unknown
+		self.Sensor = Sensor.Unknown
 		self.Projection = ""
 
 		try:
@@ -78,11 +68,11 @@ class Options:
 					LogError("The specified output format is not supported: " + arg)
 			elif opt in ("-s", "--sensor"):
 				if(arg.lower() in ("sentinel_2", "sentinel2", "sentinel")):
-					self.Sensor = SensorFormat.Sentinel_2
+					self.Sensor = Sensor.Sentinel_2
 				elif(arg.lower() == "landsat"):
-					self.Sensor = SensorFormat.Landsat
+					self.Sensor = Sensor.Landsat
 				elif(arg.lower() == "spot"):
-					self.Sensor = SensorFormat.SPOT
+					self.Sensor = Sensor.SPOT
 				else:
 					LogError("The specified sensor is not supported!")
 			elif opt in ("-p", "--projection"):
@@ -92,8 +82,8 @@ class Options:
 			LogError("The input is not specified!")
 		if(self.Output == ''):
 			LogError("The output is not specified!")
-		if(self.Sensor == SensorFormat.Unknown):
-			LogError("The sensor format is not specified!")
+		if(self.Sensor == Sensor.Unknown):
+			LogError("The input sensor is not specified!")
 	
 def Usage():
 	print 'Usage: python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>'
@@ -105,7 +95,7 @@ def LongUsage():
 	parameters = [
 		('-i, --input', 'The input file or folder.'),
 		('-o, --output', 'The output file or folder.'),
-		('-s, --sensor', 'The input sensor format (Sentinel, Landsat, SPOT).'),
+		('-s, --sensor', 'The input sensor (Sentinel, Landsat, SPOT).'),
 		('', ''),
 		('[-f, --outputFormat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
 		('[-p, --projection]',  'The target projection.')]
@@ -115,9 +105,10 @@ def LongUsage():
 
 	sys.exit(2)
 	
-def LogError(text):
-	print 'Error: ' + text
-	sys.exit(2)
+def LogError(text, fatal = True):
+	print 'Error occurred: ' + text
+	if (fatal):
+		sys.exit(2)
 
 def main(argv):
     options = Options(argv)
@@ -125,14 +116,14 @@ def main(argv):
     if not(path.exists(options.Input)):
         LogError("The specified input does not exist!")
 	
-    if(options.Sensor == SensorFormat.Sentinel_2):
+    if(options.Sensor == Sensor.Sentinel_2):
         ConvertFromSentinel(options)
-    elif(options.Sensor == SensorFormat.Landsat):
+    elif(options.Sensor == Sensor.Landsat):
         ConvertFromLandsat(options)
-    elif(options.Sensor == SensorFormat.SPOT):
+    elif(options.Sensor == Sensor.SPOT):
         ConvertFromSpot(options)
     else:
-        LogError("The sensor format is not specified!")
+        LogError("The specified sensor is not supported!")
 
 def ConvertFromSentinel(options):
 	if(path.isdir(options.Input)):
@@ -161,7 +152,7 @@ def ConvertFromSentinelTile(options):
 			os.makedirs(options.Output)
 		
 		firstFileName = path.splitext(path.basename(os.listdir(options.Input)[0]))[0]
-		outputFileNameWithoutExtension = firstFileName[:-3]
+		outputFileNameWithoutExtension = path.splitext(firstFileName)[0]
 		
 		outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
 		outputMetadata = path.join(options.Output, outputFileNameWithoutExtension + ".xml")
@@ -223,7 +214,7 @@ def ConvertFromSentinelDataset(options):
 def GetVRTFromSentinelTile(tilePath):        
 	imageFilesInOrder = []
 	files = os.listdir(tilePath)
-	for band in Bands.GetBandsForSensor(SensorFormat.Sentinel_2) :
+	for band in Sensor.GetBandsForSensor(Sensor.Sentinel_2) :
 		imageFile = next(x for x in files if x.upper().endswith(band + ".JP2"))
 		imageFilesInOrder.append(path.join(tilePath, imageFile))
 	
@@ -245,7 +236,7 @@ def ConvertFromLandsat(options):
 		break
 	
 	imageFilesInOrder = []
-	for band in Bands.GetBandsForSensor(SensorFormat.Landsat) :
+	for band in Sensor.GetBandsForSensor(Sensor.Landsat) :
 		imageFile = next(x for x in landsatFiles if x.upper().endswith(band + ".TIF"))
 		imageFilesInOrder.append(path.join(options.Input, imageFile))
 	
