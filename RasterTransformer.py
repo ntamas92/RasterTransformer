@@ -152,6 +152,8 @@ def ConvertFromSentinel(options):
 			break
 			
 		if not(metadataFound):
+			if(len(os.listdir(options.Input)) == 0):
+				LogError("There are no entires in the input path specified!")
 			ConvertFromSentinelTile(options)
 			return
 
@@ -160,12 +162,14 @@ def ConvertFromSentinel(options):
 
 def ConvertFromSentinelTile(options):
 	""" Converts a sentinel tile to a specified output image. """
+	print "Converting Sentinel-2 tile..."
+
 	vrt = GetVRTFromSentinelTile(options.Input)
 	
 	if(path.isdir(options.Output) or options.Output.endswith(os.sep)):
 		if not (path.exists(options.Output)):
 			os.makedirs(options.Output)
-		
+
 		firstFileName = path.splitext(path.basename(os.listdir(options.Input)[0]))[0]
 		outputFileNameWithoutExtension = path.splitext(firstFileName)[0]
 		
@@ -174,13 +178,19 @@ def ConvertFromSentinelTile(options):
 	else:
 		if not (path.exists(path.dirname(options.Output))):
 			os.makedirs(options.Output)
-			
+
+	print "Translating VRT to the specified output..."	
 	warpOptions = BuildWarpOptions(options)
 	gdal.Warp(outputFile, vrt, **warpOptions)
+
+	print "Done."
 	
 			
 def ConvertFromSentinelDataset(options):
 	""" Converts a sentinel dataset to a specified output image. """
+
+	print "Converting from Sentinel-2 dataset..."
+
 	dataset = gdal.Open(options.Input)        
 	if(dataset == None):
 		LogError("The specified input cannot be opened as a Sentinel-2 dataset!")
@@ -224,17 +234,35 @@ def ConvertFromSentinelDataset(options):
 
 	warpOptions = BuildWarpOptions(options)
 
+	print "Translating VRT to the specified output..."	
 	gdal.Warp(outputFile, vrts, **warpOptions)
+
+	print "Copying metadata file to the specified output..."
 	copyfile(options.Input, outputMetadata)
+
+	print "Done."
 
 def GetVRTFromSentinelTile(tilePath):
 	""" Gets a Virtual Raster Table (VRT) for a sentinel tile. """  
+
+	print "Building VRT from tile: " + tilePath
+
 	imageFilesInOrder = []
+	bandsNotFound = []
 	files = os.listdir(tilePath)
 	for band in Sensor.GetBandsForSensor(Sensor.Sentinel_2) :
-		imageFile = next(x for x in files if x.upper().endswith(band + ".JP2"))
-		imageFilesInOrder.append(path.join(tilePath, imageFile))
+		imageWithBand = [x for x in files if x.upper().endswith(band + ".JP2")]
+		if(len(imageWithBand) != 1):
+			bandsNotFound.append(band)
+		else:
+			imageFilesInOrder.append(path.join(tilePath, imageWithBand[0]))
 	
+	if(len(bandsNotFound) != 0):
+		LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
+
+	if(len(imageFilesInOrder) == 0):
+		LogError("There are no image files to convert from!")
+
 	return gdal.BuildVRT("", imageFilesInOrder, **{'separate':'true'})
 
 	
@@ -243,7 +271,7 @@ def ConvertFromLandsat(options):
 	if(path.isfile(options.Input)):
 		options.Input = path.dirname(options.Input)
 	
-	print "Converting Landsat under the specified path: " + options.Input
+	print "Converting Landsat data under the specified path: " + options.Input
 
 	landsatFiles = []
 	metadadataFile = ""
@@ -257,12 +285,19 @@ def ConvertFromLandsat(options):
 		break
 	
 	imageFilesInOrder = []
+	bandsNotFound = []
 	for band in Sensor.GetBandsForSensor(Sensor.Landsat) :
 		imageWithBand = [x for x in landsatFiles if x.upper().endswith(band + ".TIF")]
 		if(len(imageWithBand) != 1):
-			LogWarning("Cannot find the appropriate file for " + band + " band!")
+			bandsNotFound.append(band)
 		else:
 			imageFilesInOrder.append(path.join(options.Input, imageWithBand[0]))
+
+	if(len(bandsNotFound) != 0):
+		LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
+
+	if(len(imageFilesInOrder) == 0):
+		LogError("There are no image files to convert from!")
 	
 	print "Building VRT from the files..."
 	vrt = gdal.BuildVRT("", imageFilesInOrder, **{'separate':'true'})
