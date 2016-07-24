@@ -9,6 +9,7 @@ import re
 
 class ImageFormat:
     """ Represents an image format. """
+
     GTiff, HFA = range(2)
 
     @staticmethod
@@ -38,8 +39,7 @@ class Sensor:
         if sensor == Sensor.Landsat:
             return ["_B1", "_B2", "_B3", "_B4", "_B5", "_B6", "_B7", "_B8", "_B9", "_B10", "_B11", "_BQA"]
         elif sensor == Sensor.Sentinel_2:
-            return ["_B01", "_B02", "_B03", "_B04", "_B05", "_B06", "_B07", "_B08", "_B8A", "_B09", "_B10", "_B11",
-                    "_B12"]
+            return ["_B01", "_B02", "_B03", "_B04", "_B05", "_B06", "_B07", "_B08", "_B8A", "_B09", "_B10", "_B11", "_B12"]
         else:
             return None
 
@@ -54,7 +54,7 @@ class Options:
         self.Projection = ""
 
         try:
-            opts, args = getopt.getopt(argv, "hi:o:f:s:p:", ["help", "input=", "output=", "outputformat=", "sensor=" "projection="])
+            opts, args = getopt.getopt(argv, "hi:o:f:s:p:", ["help", "input=", "output=", "outputformat=", "sensor=", "projection="])
             if len(opts) == 0:
                 Usage()
         except getopt.GetoptError as err:
@@ -155,7 +155,7 @@ def ConvertFromSentinel(options):
         metadataFound = False
         for root, dirs, files in os.walk(options.Input):
             for name in files:
-                if re.search(metadataFileExpression, name) != None:
+                if re.search(metadataFileExpression, name) is not None:
                     options.Input = path.join(root, name)
                     metadataFound = True
                     break
@@ -199,15 +199,20 @@ def ConvertFromSentinelTile(options):
 
 def ConvertFromSentinelDataset(options):
     """ Converts a sentinel dataset to a specified output image. """
-
     print "Converting from Sentinel-2 dataset..."
 
     dataset = gdal.Open(options.Input)
-    if dataset == None:
+    if dataset is None:
         LogError("The specified input cannot be opened as a Sentinel-2 dataset!")
 
     if options.Projection == "":
-        subdatasetName, description = dataset.GetSubDatasets()[0]
+        subdatasets = dataset.GetSubDatasets()
+
+        # Sentinel-2 should contain data as subdatasets.
+        # If there are no subdatasets, the input is probably not a sentinel-2 dataset.
+        if len(subdatasets) == 0:
+            LogError("The specified input is not a valid Sentinel-2 dataset.")
+        subdatasetName, description = subdatasets[0]
         options.Projection = gdal.Open(subdatasetName).GetProjection()
 
     granulePath = path.join(path.dirname(options.Input), "GRANULE")
@@ -256,14 +261,13 @@ def ConvertFromSentinelDataset(options):
 
 def GetVRTFromSentinelTile(tilePath):
     """ Gets a Virtual Raster Table (VRT) for a sentinel tile. """
-
     print "Building VRT from tile: " + tilePath
 
     imageFilesInOrder = []
     bandsNotFound = []
     files = os.listdir(tilePath)
     for band in Sensor.GetBandsForSensor(Sensor.Sentinel_2):
-        imageWithBand = [x for x in files if x.upper().endswith(band + ".JP2")]
+        imageWithBand = [x for x in files if x.lower().endswith(band + ".jp2")]
         if len(imageWithBand) != 1:
             bandsNotFound.append(band)
         else:
@@ -271,7 +275,6 @@ def GetVRTFromSentinelTile(tilePath):
 
     if len(bandsNotFound) != 0:
         LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
-
     if len(imageFilesInOrder) == 0:
         LogError("There are no image files to convert from!")
 
@@ -292,14 +295,14 @@ def ConvertFromLandsat(options):
         for file in files:
             if file.upper().endswith("_MTL.TXT"):
                 metadataFile = path.join(options.Input, file)
-            elif path.splitext(file)[1].upper() == ".TIF":
+            elif path.splitext(file)[1].lower() == ".tif":
                 landsatFiles.append(file)
         break
 
     imageFilesInOrder = []
     bandsNotFound = []
     for band in Sensor.GetBandsForSensor(Sensor.Landsat):
-        imageWithBand = [x for x in landsatFiles if x.upper().endswith(band + ".TIF")]
+        imageWithBand = [x for x in landsatFiles if x.lower().endswith(band + ".tif")]
         if len(imageWithBand) != 1:
             bandsNotFound.append(band)
         else:
@@ -307,7 +310,6 @@ def ConvertFromLandsat(options):
 
     if len(bandsNotFound) != 0:
         LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
-
     if len(imageFilesInOrder) == 0:
         LogError("There are no image files to convert from!")
 
