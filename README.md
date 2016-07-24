@@ -66,3 +66,5 @@ root
 - **Sentintel-2 Tiled mode**: The script can also convert only a specific tile from a Sentinel dataset. In this case, the directory path of the tile should be the input.
 
 - **Landsat**: In a Landsat dataset, each band is stored in different files. The input can be a file from the dataset or the containing folder. The file with the `_MTL.txt` suffix will be chosen for the metadata file.
+
+- **SPOT**: A SPOT dataset contains all information in one GeoTiff file. The input can be the GeoTiff file, or the containing folder. The file with the same name as the input will be chosen as the metadata file. 
