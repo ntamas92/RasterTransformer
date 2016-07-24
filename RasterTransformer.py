@@ -326,13 +326,63 @@ def ConvertFromLandsat(options):
 	if(metadataFile != ""):
 		print "Copying the metadata file..."	
 		copyfile(metadataFile, outputMetadata)
+	else:
+		LogWarning("Could not find the metadata file for the image!")
 	
 	print "Done."
 	
 def ConvertFromSpot(options):
 	""" Converts a SPOT dataset to a specified output image. """
-	LogError("Converting from a SPOT dataset is not implemented!")
-	pass
+	print "Converting SPOT data under the specified path: " + options.Input
+	
+	inputFile = ""
+	
+	if(path.isdir(options.Input)):
+		files = os.listdir(options.Input)
+		for f in files:
+			if(f.lower().endswith(".tif")):
+				inputFile = path.join(options.Input, f)
+				break
+
+		if (inputFile == ""):
+			LogError("Cannot find the input image file!")		
+	elif(path.isfile(options.Input)):
+		inputFile = options.Input
+	else:
+		LogError("The specified input file or folder does not exist!")
+
+	inputMetadata = path.splitext(inputFile)[0] + ".xml";
+	if not(path.exists(inputMetadata)):
+		LogWarning("Cannot find metadata for the input file!")
+		inputMetadata = ""
+	
+	print "Building VRT from the files..."
+	vrt = gdal.BuildVRT("", inputFile)
+
+	if(path.isdir(options.Output) or options.Output.endswith(os.sep)):
+		if not (path.exists(options.Output)):
+			os.makedirs(options.Output)
+		
+		outputFileNameWithoutExtension = path.splitext(path.basename(options.Input))[0]
+		
+		outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
+		outputMetadata = path.join(options.Output, outputFileNameWithoutExtension + ".xml")
+	else:
+		if not (path.exists(path.dirname(options.Output))):
+			os.makedirs(options.Output)
+		
+		outputFile = options.Output
+		outputMetadata = path.splitext(options.Output)[0] + ".xml"
+
+	print "Translating VRT to the specified output..."
+	warpOptions = BuildWarpOptions(options)
+	gdal.Warp(outputFile, vrt, **warpOptions)
+
+	if(inputMetadata != ""):
+		print "Copying the metadata file..."
+		copyfile(inputMetadata, outputMetadata)
+
+	print "Done."
 
 def BuildWarpOptions(options):
 	""" Builds GDALWarpOptions for the Warp method based on the input parameters. """
