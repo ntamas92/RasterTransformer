@@ -38,7 +38,7 @@ A docker image from the project can be created in a straightforward manner using
 -s, --sensor              The input sensor (Sentinel, Landsat, SPOT).
 
 [-f, --outputformat]      The output format of the image (GeoTiff, Erdas). Default: GeoTiff.
-[-p, --projection]        The target projection.
+[-p, --projection]        The target projection (EPSG code or full WKT representation).
 ```
 
 #### Dataset information:
@@ -61,7 +61,7 @@ root
 	...
   ```
   The root `S2A_OPER_MTD_SAFL1C_*.xml` file is the metadata of the dataset. The input can be either the root directory, or the path to the metadata. 
-  The sentinel tiles can rely on different coordinate reference systems, so reprojection of the tiles is necessary. The projection can be specified as input argument using `EPSG` codes. If no projection is specified, than the projection of the first tile will be used for the whole dataset.
+  The sentinel tiles can rely on different coordinate reference systems, so reprojection of the tiles is necessary. If no projection is specified as input argument, then the projection of the first tile will be used for the whole dataset.
   
 - **Sentintel-2 Tiled mode**: The script can also convert only a specific tile from a Sentinel dataset. In this case, the directory path of the tile should be the input.
 
