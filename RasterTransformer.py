@@ -3,7 +3,7 @@ from os import path
 from shutil import copyfile
 import os
 import sys
-import getopt
+import argparse
 import re
 
 
@@ -28,6 +28,15 @@ class ImageFormat:
         if format == ImageFormat.HFA:
             return ".img"
 
+    @staticmethod
+    def GetImageFormatFromString(imageFormatString):
+        if imageFormatString is None or imageFormatString.lower() in ("gtiff", "geotiff", "tiff"):
+            return ImageFormat.GTiff
+        elif imageFormatString.lower() in ("hfa", "img", "erdas", "erdasimg"):
+            return ImageFormat.HFA
+        else:
+            LogError("The specified output format is not supported: " + imageFormatString)
+
 
 class Sensor:
     """ Represents a sensor format """
@@ -43,64 +52,16 @@ class Sensor:
         else:
             return None
 
-
-class Options:
-    """ Represents the options for running the script """
-    def __init__(self, argv):
-        self.Input = ""
-        self.Output = ""
-        self.OutputFormat = ImageFormat.GTiff
-        self.Sensor = Sensor.Unknown
-        self.Projection = ""
-
-        try:
-            opts, args = getopt.getopt(argv, "hi:o:f:s:p:", ["help", "input=", "output=", "outputformat=", "sensor=", "projection="])
-            if len(opts) == 0:
-                Usage()
-        except getopt.GetoptError as err:
-            print "Error occurred parsing the arguments: " + str(err)
-            Usage()
-
-        for opt, arg in opts:
-            if opt in ("-h", "--help"):
-                LongUsage()
-            elif opt in ("-i", "--input"):
-                self.Input = path.abspath(arg)
-            elif opt in ("-o", "--output"):
-                self.Output = path.abspath(arg)
-                if arg.endswith(os.sep):
-                    self.Output += os.sep
-            elif opt.lower() in ("-f", "--outputformat"):
-                if arg.lower() in ("gtiff", "geotiff", "tiff"):
-                    self.OutputFormat = ImageFormat.GTiff
-                elif arg.lower() in ("hfa", "img", "erdas", "erdasimg"):
-                    self.OutputFormat = ImageFormat.HFA
-                else:
-                    LogError("The specified output format is not supported: " + arg)
-            elif opt in ("-s", "--sensor"):
-                if arg.lower() in ("sentinel_2", "sentinel2", "sentinel"):
-                    self.Sensor = Sensor.Sentinel_2
-                elif arg.lower() == "landsat":
-                    self.Sensor = Sensor.Landsat
-                elif arg.lower() == "spot":
-                    self.Sensor = Sensor.SPOT
-                else:
-                    LogError("The specified sensor is not supported: " + arg)
-            elif opt in ("-p", "--projection"):
-                self.Projection = arg
-
-        if self.Input == '':
-            LogError("The input is not specified!")
-        if self.Output == '':
-            LogError("The output is not specified!")
-        if self.Sensor == Sensor.Unknown:
-            LogError("The input sensor is not specified!")
-
-
-def Usage():
-    """ Prints usage information about running the script. """
-    print 'Usage: python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>'
-    sys.exit(2)
+    @staticmethod
+    def GetSensorFromString(sensorString):
+        if sensorString.lower() in ("sentinel_2", "sentinel2", "sentinel"):
+            return Sensor.Sentinel_2
+        elif sensorString.lower() == "landsat":
+            return Sensor.Landsat
+        elif sensorString.lower() == "spot":
+            return Sensor.SPOT
+        else:
+            LogError("The specified sensor is not supported: " + sensorString)
 
 
 def LongUsage():
@@ -118,8 +79,6 @@ def LongUsage():
     for helpKey, helpText in parameters:
         print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
 
-    sys.exit(2)
-
 
 def LogError(text):
     """ Prints error information. """
@@ -133,17 +92,37 @@ def LogWarning(text):
 
 
 def main(argv):
-    options = Options(argv)
+    # The argparse module has some issues with printing the help page so a custom help will be used
+    parser = argparse.ArgumentParser(add_help=False, usage='python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>')
+    parser.add_argument('-i', '--input', dest='Input', required=True)
+    parser.add_argument('-o', '--output', dest='Output', required=True)
+    parser.add_argument('-s', '--sensor', dest='Sensor', required=True)
+    parser.add_argument('-f', '--outputformat', dest='OutputFormat')
+    parser.add_argument('-p', '--projection', dest='Projection')
+    parser.add_argument('-h', '--help')
+    args = parser.parse_args()
 
-    if not (path.exists(options.Input)):
+    args.Input = path.abspath(args.Input)
+
+    output = args.Output
+    args.Output = path.abspath(output)
+    # path.abspath removes the trailing directory separator which we will need to decide
+    # whether the specified output is a directory
+    if output.endswith(os.sep):
+        args.Output += os.sep
+
+    args.Sensor = Sensor.GetSensorFromString(args.Sensor)
+    args.OutputFormat = ImageFormat.GetImageFormatFromString(args.OutputFormat)
+
+    if not (path.exists(args.Input)):
         LogError("The specified input does not exist!")
 
-    if options.Sensor == Sensor.Sentinel_2:
-        ConvertFromSentinel(options)
-    elif options.Sensor == Sensor.Landsat:
-        ConvertFromLandsat(options)
-    elif options.Sensor == Sensor.SPOT:
-        ConvertFromSpot(options)
+    if args.Sensor == Sensor.Sentinel_2:
+        ConvertFromSentinel(args)
+    elif args.Sensor == Sensor.Landsat:
+        ConvertFromLandsat(args)
+    elif args.Sensor == Sensor.SPOT:
+        ConvertFromSpot(args)
     else:
         LogError("The specified sensor is not supported!")
 
@@ -183,8 +162,7 @@ def ConvertFromSentinelTile(options):
         firstFileName = path.splitext(path.basename(os.listdir(options.Input)[0]))[0]
         outputFileNameWithoutExtension = path.splitext(firstFileName)[0]
 
-        outputFile = path.join(options.Output,
-                               outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
+        outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
         outputMetadata = path.join(options.Output, outputFileNameWithoutExtension + ".xml")
     else:
         if not (path.exists(path.dirname(options.Output))):
@@ -267,7 +245,7 @@ def GetVRTFromSentinelTile(tilePath):
     bandsNotFound = []
     files = os.listdir(tilePath)
     for band in Sensor.GetBandsForSensor(Sensor.Sentinel_2):
-        imageWithBand = [x for x in files if x.lower().endswith(band + ".jp2")]
+        imageWithBand = [x for x in files if x.upper().endswith(band + ".JP2")]
         if len(imageWithBand) != 1:
             bandsNotFound.append(band)
         else:
@@ -302,7 +280,7 @@ def ConvertFromLandsat(options):
     imageFilesInOrder = []
     bandsNotFound = []
     for band in Sensor.GetBandsForSensor(Sensor.Landsat):
-        imageWithBand = [x for x in landsatFiles if x.lower().endswith(band + ".tif")]
+        imageWithBand = [x for x in landsatFiles if x.upper().endswith(band + ".TIF")]
         if len(imageWithBand) != 1:
             bandsNotFound.append(band)
         else:
