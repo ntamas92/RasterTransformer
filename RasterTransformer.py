@@ -64,25 +64,21 @@ class Sensor:
             LogError("The specified sensor is not supported: " + sensorString)
 
 
-def LongUsage():
-    """ Prints detailed usage information about running the script. """
-    print 'Usage: python RasterTransformer.py'
-    print "Parameters:"
-    parameters = [
-        ('-i, --input', 'The input file or folder.'),
-        ('-o, --output', 'The output file or folder.'),
-        ('-s, --sensor', 'The input sensor (Sentinel, Landsat, SPOT).'),
-        ('', ''),
-        ('[-f, --outputformat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
-        ('[-p, --projection]', 'The target projection.')]
-
-    for helpKey, helpText in parameters:
-        print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
-
-
 class CustomArgumentParser(argparse.ArgumentParser):
     def format_help(self):
-        return LongUsage()
+        print 'Usage: python RasterTransformer.py'
+        print "Parameters:"
+        parameters = [
+            ('-i, --input', 'The input file or folder.'),
+            ('-o, --output', 'The output file or folder.'),
+            ('-s, --sensor', 'The input sensor (Sentinel, Landsat, SPOT).'),
+            ('', ''),
+            ('[-f, --outputformat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
+            ('[-p, --projection]', 'The target projection.')]
+
+        for helpKey, helpText in parameters:
+            print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
+
 
 def main(argv):
     # The argparse module has some issues with printing the help page so a custom help will be used
