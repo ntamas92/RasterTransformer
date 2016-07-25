@@ -46,9 +46,9 @@ class Sensor:
     def GetBandsForSensor(sensor):
         """ Gets the bands for a specific sensor in order. """
         if sensor == Sensor.Landsat:
-            return ["_B1", "_B2", "_B3", "_B4", "_B5", "_B6", "_B7", "_B8", "_B9", "_B10", "_B11", "_BQA"]
+            return ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "BQA"]
         elif sensor == Sensor.Sentinel_2:
-            return ["_B01", "_B02", "_B03", "_B04", "_B05", "_B06", "_B07", "_B08", "_B8A", "_B09", "_B10", "_B11", "_B12"]
+            return ["B01", "B02", "B03", "B04", "B05", "B06", "B07", "B08", "B8A", "B09", "B10", "B11", "B12"]
         else:
             return None
 
@@ -80,17 +80,6 @@ def LongUsage():
         print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
 
 
-def LogError(text):
-    """ Prints error information. """
-    print 'Error occurred: ' + text
-    sys.exit(2)
-
-
-def LogWarning(text):
-    """ Prints warning information. """
-    print 'Warning: ' + text
-
-
 def main(argv):
     # The argparse module has some issues with printing the help page so a custom help will be used
     parser = argparse.ArgumentParser(add_help=False, usage='python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>')
@@ -106,8 +95,8 @@ def main(argv):
 
     output = args.Output
     args.Output = path.abspath(output)
-    # path.abspath removes the trailing directory separator which we will need to decide
-    # whether the specified output is a directory
+    # path.abspath removes the trailing directory separator,
+    # but we need it to decide whether the specified output is a directory
     if output.endswith(os.sep):
         args.Output += os.sep
 
@@ -117,32 +106,31 @@ def main(argv):
     if not (path.exists(args.Input)):
         LogError("The specified input does not exist!")
 
-    if args.Sensor == Sensor.Sentinel_2:
-        ConvertFromSentinel(args)
-    elif args.Sensor == Sensor.Landsat:
-        ConvertFromLandsat(args)
-    elif args.Sensor == Sensor.SPOT:
-        ConvertFromSpot(args)
-    else:
-        LogError("The specified sensor is not supported!")
+    try:
+        if args.Sensor == Sensor.Sentinel_2:
+            ConvertFromSentinel(args)
+        elif args.Sensor == Sensor.Landsat:
+            ConvertFromLandsat(args)
+        elif args.Sensor == Sensor.SPOT:
+            ConvertFromSpot(args)
+        else:
+            LogError("The specified sensor is not supported!")
+    except Exception as ex:
+        LogError("Exception occurred during execution:" + str(ex))
 
 
 def ConvertFromSentinel(options):
     """ Converts a sentinel dataset or tile to a specified output image. """
     if path.isdir(options.Input):
-        metadataFileExpression = "2A_OPER_MTD_SAFL1C_(.*)\.xml"
+        metadataFilePattern = "2A_OPER_MTD_SAFL1C_(.*)\.xml"
         metadataFound = False
-        for root, dirs, files in os.walk(options.Input):
-            for name in files:
-                if re.search(metadataFileExpression, name) is not None:
-                    options.Input = path.join(root, name)
-                    metadataFound = True
-                    break
-            break
+        for fileEntry in os.listdir(options.Input):
+            if re.search(metadataFilePattern, fileEntry) is not None:
+                options.Input = path.join(options.Input, fileEntry)
+                metadataFound = True
+                break
 
         if not metadataFound:
-            if len(os.listdir(options.Input)) == 0:
-                LogError("There are no entires in the input path specified!")
             ConvertFromSentinelTile(options)
             return
 
@@ -155,24 +143,22 @@ def ConvertFromSentinelTile(options):
 
     vrt = GetVRTFromSentinelTile(options.Input)
 
-    if path.isdir(options.Output) or options.Output.endswith(os.sep):
-        if not (path.exists(options.Output)):
-            os.makedirs(options.Output)
+    CreateOutputPath(options)
 
+    if path.isdir(options.Output):
         firstFileName = path.splitext(path.basename(os.listdir(options.Input)[0]))[0]
         outputFileNameWithoutExtension = path.splitext(firstFileName)[0]
 
         outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
-        outputMetadata = path.join(options.Output, outputFileNameWithoutExtension + ".xml")
+
+    inputMetadata = path.join(options.Input, "metadata.xml")
+    outputMetadata = None
+    if path.exists(inputMetadata):
+        outputMetadata = path.join(path.dirname(outputFile), "metadata.xml")
     else:
-        if not (path.exists(path.dirname(options.Output))):
-            os.makedirs(options.Output)
+        inputMetadata = None
 
-    print "Translating VRT to the specified output..."
-    warpOptions = BuildWarpOptions(options)
-    gdal.Warp(outputFile, vrt, **warpOptions)
-
-    print "Done."
+    ProduceOutput(options, outputFile, vrt, inputMetadata, outputMetadata)
 
 
 def ConvertFromSentinelDataset(options):
@@ -197,10 +183,9 @@ def ConvertFromSentinelDataset(options):
     if not (path.exists(granulePath)):
         LogError("Cannot find GRANULE folder in the input dataset!")
 
-    tiles = os.listdir(granulePath)
     vrts = []
 
-    for tile in tiles:
+    for tile in os.listdir(granulePath):
         tilePath = path.join(granulePath, tile)
         imageFolder = path.join(tilePath, "IMG_DATA")
 
@@ -209,32 +194,19 @@ def ConvertFromSentinelDataset(options):
 
         vrts.append(GetVRTFromSentinelTile(imageFolder))
 
-    if path.isdir(options.Output) or options.Output.endswith(os.sep):
-        if not (path.exists(options.Output)):
-            os.makedirs(options.Output)
+    CreateOutputPath(options)
 
+    if path.isdir(options.Output):
         inputFileName, extension = path.splitext(path.basename(options.Input))
         outputFileName = inputFileName + ImageFormat.Extension(options.OutputFormat)
-        outputMetadataName = inputFileName + extension
 
         outputFile = path.join(options.Output, outputFileName)
-        outputMetadata = path.join(options.Output, outputMetadataName)
     else:
-        if not (path.exists(path.dirname(options.Output))):
-            os.makedirs(path.dirname(options.Output))
-
         outputFile = options.Output
-        outputMetadata = path.splitext(outputFile)[0] + ".xml"
 
-    warpOptions = BuildWarpOptions(options)
+    outputMetadata = path.splitext(outputFile)[0] + ".xml"
 
-    print "Translating VRT to the specified output..."
-    gdal.Warp(outputFile, vrts, **warpOptions)
-
-    print "Copying metadata file to the specified output..."
-    copyfile(options.Input, outputMetadata)
-
-    print "Done."
+    ProduceOutput(options, outputFile, vrts, options.Input, outputMetadata)
 
 
 def GetVRTFromSentinelTile(tilePath):
@@ -252,7 +224,7 @@ def GetVRTFromSentinelTile(tilePath):
             imageFilesInOrder.append(path.join(tilePath, imageWithBand[0]))
 
     if len(bandsNotFound) != 0:
-        LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
+        LogError("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
     if len(imageFilesInOrder) == 0:
         LogError("There are no image files to convert from!")
 
@@ -269,13 +241,11 @@ def ConvertFromLandsat(options):
     landsatFiles = []
     metadataFile = ""
 
-    for root, dirs, files in os.walk(options.Input):
-        for file in files:
-            if file.upper().endswith("_MTL.TXT"):
-                metadataFile = path.join(options.Input, file)
-            elif path.splitext(file)[1].lower() == ".tif":
-                landsatFiles.append(file)
-        break
+    for fileEntry in [path.join(options.Input, x) for x in os.listdir(options.Input)]:
+        if fileEntry.upper().endswith("_MTL.TXT"):
+            metadataFile = fileEntry
+        elif path.splitext(fileEntry)[1].upper() == ".TIF":
+            landsatFiles.append(fileEntry)
 
     imageFilesInOrder = []
     bandsNotFound = []
@@ -290,39 +260,25 @@ def ConvertFromLandsat(options):
         LogWarning("Cannot find the appropriate file for " + ', '.join(bandsNotFound) + " band(s)!")
     if len(imageFilesInOrder) == 0:
         LogError("There are no image files to convert from!")
+    if metadataFile == "":
+        LogWarning("Cannot find the metadata file!")
 
     print "Building VRT from the files..."
     vrt = gdal.BuildVRT("", imageFilesInOrder, **{'separate': 'true'})
 
-    if path.isdir(options.Output) or options.Output.endswith(os.sep):
-        if not (path.exists(options.Output)):
-            os.makedirs(options.Output)
+    CreateOutputPath(options)
 
+    if path.isdir(options.Output):
         firstFileName = path.splitext(path.basename(imageFilesInOrder[0]))[0]
-        outputFileNameWithoutExtension = firstFileName[:-3]
+        outputFileNameWithoutExtension = firstFileName[:-3]  # Remove the _B1 suffix from the filename
 
-        outputFile = path.join(options.Output,
-                               outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
-        outputMetadata = path.join(options.Output, outputFileNameWithoutExtension + ".txt")
+        outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
     else:
-        if not (path.exists(path.dirname(options.Output))):
-            os.makedirs(options.Output)
-
         outputFile = options.Output
-        outputMetadata = path.splitext(options.Output)[0] + ".txt"
 
-    warpOptions = BuildWarpOptions(options)
+    outputMetadata = path.splitext(outputFile)[0] + ".txt"
 
-    print "Translating VRT to the specified output..."
-    gdal.Warp(outputFile, vrt, **warpOptions)
-
-    if metadataFile != "":
-        print "Copying the metadata file..."
-        copyfile(metadataFile, outputMetadata)
-    else:
-        LogWarning("Could not find the metadata file for the image!")
-
-    print "Done."
+    ProduceOutput(options, outputFile, vrt, metadataFile, outputMetadata)
 
 
 def ConvertFromSpot(options):
@@ -342,6 +298,8 @@ def ConvertFromSpot(options):
             LogError("Cannot find the input image file!")
     elif path.isfile(options.Input):
         inputFile = options.Input
+        if not inputFile.lower().endswith(".tif"):
+            LogError("The specified input file is not a GeoTiff file!")
     else:
         LogError("The specified input file or folder does not exist!")
 
@@ -353,30 +311,39 @@ def ConvertFromSpot(options):
     print "Building VRT from the files..."
     vrt = gdal.BuildVRT("", inputFile)
 
-    if path.isdir(options.Output) or options.Output.endswith(os.sep):
-        if not (path.exists(options.Output)):
-            os.makedirs(options.Output)
+    CreateOutputPath(options)
 
+    if path.isdir(options.Output):
         outputWithoutExtension = path.splitext(path.basename(options.Input))[0]
-
         outputFile = path.join(options.Output, outputWithoutExtension + ImageFormat.Extension(options.OutputFormat))
-        outputMetadata = path.join(options.Output, outputWithoutExtension + ".xml")
     else:
-        if not (path.exists(path.dirname(options.Output))):
-            os.makedirs(options.Output)
-
         outputFile = options.Output
-        outputMetadata = path.splitext(options.Output)[0] + ".xml"
 
+    outputMetadata = path.splitext(outputFile)[0] + ".xml"
+
+    ProduceOutput(options, outputFile, vrt, inputMetadata, outputMetadata)
+
+
+def ProduceOutput(options, outputFile, vrts, inputMetadata=None, outputMetadata=None):
     print "Translating VRT to the specified output..."
     warpOptions = BuildWarpOptions(options)
-    gdal.Warp(outputFile, vrt, **warpOptions)
+    gdal.Warp(outputFile, vrts, **warpOptions)
 
-    if inputMetadata != "":
-        print "Copying the metadata file..."
+    if inputMetadata is not None and inputMetadata != "":
+        print "Copying metadata file to the specified output..."
         copyfile(inputMetadata, outputMetadata)
 
     print "Done."
+
+
+def CreateOutputPath(options):
+    if path.isdir(options.Output) or options.Output.endswith(os.sep):
+        outputDir = options.Output
+    else:
+        outputDir = path.dirname(options.Output)
+
+    if not path.exists(outputDir):
+        os.makedirs(options.Output)
 
 
 def BuildWarpOptions(options):
@@ -390,6 +357,16 @@ def BuildWarpOptions(options):
 
     return warpOptions
 
+
+def LogError(text):
+    """ Prints error information. """
+    print 'Error occurred: ' + text
+    sys.exit(2)
+
+
+def LogWarning(text):
+    """ Prints warning information. """
+    print 'Warning: ' + text
 
 if __name__ == "__main__":
     main(sys.argv[1:])
