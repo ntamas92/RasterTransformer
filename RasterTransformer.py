@@ -80,15 +80,19 @@ def LongUsage():
         print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
 
 
+class CustomArgumentParser(argparse.ArgumentParser):
+    def format_help(self):
+        return LongUsage()
+
 def main(argv):
     # The argparse module has some issues with printing the help page so a custom help will be used
-    parser = argparse.ArgumentParser(add_help=False, usage='python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>')
+    parser = CustomArgumentParser(usage='python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>')
     parser.add_argument('-i', '--input', dest='Input', required=True)
     parser.add_argument('-o', '--output', dest='Output', required=True)
     parser.add_argument('-s', '--sensor', dest='Sensor', required=True)
     parser.add_argument('-f', '--outputformat', dest='OutputFormat')
     parser.add_argument('-p', '--projection', dest='Projection')
-    parser.add_argument('-h', '--help')
+
     args = parser.parse_args()
 
     args.Input = path.abspath(args.Input)
