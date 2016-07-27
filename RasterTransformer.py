@@ -226,15 +226,27 @@ def GetVRTFromSentinelTile(tilePath):
 
 def ConvertFromLandsat(options):
     """ Converts a landsat dataset to a specified output image. """
+
+    inputFiles = []
+
     if path.isfile(options.Input):
-        options.Input = path.dirname(options.Input)
+        fileNamePrefix = path.basename(options.Input)
+        if fileNamePrefix.upper().endswith("_MTL.TXT") or fileNamePrefix.upper().endswith("_BQA.TXT"):
+            fileNamePrefix = fileNamePrefix[:-8]
+        else:
+            fileNamePrefix = fileNamePrefix[:-7]
+
+        directoryName = path.dirname(options.Input)
+        inputFiles = [path.join(directoryName, x) for x in os.listdir(directoryName) if x.startswith(fileNamePrefix)]
+    else:
+        inputFiles = [path.join(options.Input, x) for x in os.listdir(options.Input)]
 
     print "Converting Landsat data under the specified path: " + options.Input
 
     landsatFiles = []
     metadataFile = ""
 
-    for fileEntry in [path.join(options.Input, x) for x in os.listdir(options.Input)]:
+    for fileEntry in inputFiles:
         if fileEntry.upper().endswith("_MTL.TXT"):
             metadataFile = fileEntry
         elif path.splitext(fileEntry)[1].upper() == ".TIF":
