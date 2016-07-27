@@ -5,7 +5,7 @@ import os
 import sys
 import argparse
 import re
-
+import tempfile
 
 class ImageFormat:
     """ Represents an image format. """
@@ -74,13 +74,14 @@ class CustomArgumentParser(argparse.ArgumentParser):
             ('-s, --sensor', 'The input sensor (Sentinel, Landsat, SPOT).'),
             ('', ''),
             ('[-f, --outputformat]', 'The output format of the image (GeoTiff, Erdas). Default: GeoTiff.'),
-            ('[-p, --projection]', 'The target projection.')]
+            ('[-p, --projection]', 'The target projection.'),
+            ('[--local-execution]', 'Indicates whether the conversion should be executed in a local temp directory.')]
 
         for helpKey, helpText in parameters:
             print " ".ljust(3), "%-25s %s" % (helpKey, helpText)
 
 
-def main(argv):
+def main():
     # The argparse module has some issues with printing the help page so a custom help will be used
     parser = CustomArgumentParser(usage='python RasterTransformer.py [--help] -i <input> -o <output> -s <sensor>')
     parser.add_argument('-i', '--input', dest='Input', required=True)
@@ -88,17 +89,9 @@ def main(argv):
     parser.add_argument('-s', '--sensor', dest='Sensor', required=True)
     parser.add_argument('-f', '--outputformat', dest='OutputFormat')
     parser.add_argument('-p', '--projection', dest='Projection')
+    parser.add_argument('--local-execution', dest='LocalExecution', action='store_true')
 
     args = parser.parse_args()
-
-    args.Input = path.abspath(args.Input)
-
-    output = args.Output
-    args.Output = path.abspath(output)
-    # path.abspath removes the trailing directory separator,
-    # but we need it to decide whether the specified output is a directory
-    if output.endswith(os.sep):
-        args.Output += os.sep
 
     args.Sensor = Sensor.GetSensorFromString(args.Sensor)
     args.OutputFormat = ImageFormat.GetImageFormatFromString(args.OutputFormat)
@@ -369,4 +362,4 @@ def LogWarning(text):
     print 'Warning: ' + text
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
