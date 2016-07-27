@@ -6,6 +6,7 @@ import sys
 import argparse
 import re
 import tempfile
+import shutil
 
 class ImageFormat:
     """ Represents an image format. """
@@ -99,6 +100,16 @@ def main():
     if not (path.exists(args.Input)):
         LogError("The specified input does not exist!")
 
+    tempInput, tempOutput = "", ""
+    originalInput, originalOutput = "", ""
+
+    if args.LocalExecution:
+        tempInput, tempOutput = CopyContentToTemp(args)
+
+        originalOutput = args.Output
+        args.Input = tempInput
+        args.Output = tempOutput
+
     try:
         if args.Sensor == Sensor.Sentinel_2:
             ConvertFromSentinel(args)
@@ -110,6 +121,41 @@ def main():
             LogError("The specified sensor is not supported!")
     except Exception as ex:
         LogError("Exception occurred during execution:" + str(ex))
+
+    if args.LocalExecution:
+        if not path.exists(originalOutput) and originalOutput.endswith(os.sep):
+            os.makedirs(originalOutput)
+
+        for outputFile in [path.join(tempOutput, x) for x in os.listdir(tempOutput)]:
+            shutil.copy(outputFile, originalOutput)
+
+        shutil.rmtree(tempInput)
+        shutil.rmtree(tempOutput)
+
+
+def CopyContentToTemp(options):
+    tempInput = tempfile.mkdtemp()
+    tempOutput = tempfile.mkdtemp()
+
+    if options.Sensor == Sensor.Sentinel_2:
+        if path.isfile(options.Input):
+            folderToCopy = path.dirname(options.Input)
+        else:
+            folderToCopy = options.Input
+
+        shutil.copytree(folderToCopy, tempInput)
+    elif options.Sensor == Sensor.Landsat:
+        filesToCopy = GetLandsatFiles(options.Input)
+
+        for file in filesToCopy:
+            shutil.copy(file, tempInput)
+
+    elif options.Sensor == Sensor.SPOT:
+        file, metadata = GetSpotFiles(options.Input)
+        shutil.copy(file, tempInput)
+        shutil.copy(metadata, tempInput)
+
+    return tempInput, tempOutput
 
 
 def ConvertFromSentinel(options):
@@ -227,19 +273,7 @@ def GetVRTFromSentinelTile(tilePath):
 def ConvertFromLandsat(options):
     """ Converts a landsat dataset to a specified output image. """
 
-    inputFiles = []
-
-    if path.isfile(options.Input):
-        fileNamePrefix = path.basename(options.Input)
-        if fileNamePrefix.upper().endswith("_MTL.TXT") or fileNamePrefix.upper().endswith("_BQA.TXT"):
-            fileNamePrefix = fileNamePrefix[:-8]
-        else:
-            fileNamePrefix = fileNamePrefix[:-7]
-
-        directoryName = path.dirname(options.Input)
-        inputFiles = [path.join(directoryName, x) for x in os.listdir(directoryName) if x.startswith(fileNamePrefix)]
-    else:
-        inputFiles = [path.join(options.Input, x) for x in os.listdir(options.Input)]
+    inputFiles = GetLandsatFiles(options.Input)
 
     print "Converting Landsat data under the specified path: " + options.Input
 
@@ -290,28 +324,7 @@ def ConvertFromSpot(options):
     """ Converts a SPOT dataset to a specified output image. """
     print "Converting SPOT data under the specified path: " + options.Input
 
-    inputFile = ""
-
-    if path.isdir(options.Input):
-        files = os.listdir(options.Input)
-        for f in files:
-            if f.lower().endswith(".tif"):
-                inputFile = path.join(options.Input, f)
-                break
-
-        if inputFile == "":
-            LogError("Cannot find the input image file!")
-    elif path.isfile(options.Input):
-        inputFile = options.Input
-        if not inputFile.lower().endswith(".tif"):
-            LogError("The specified input file is not a GeoTiff file!")
-    else:
-        LogError("The specified input file or folder does not exist!")
-
-    inputMetadata = path.splitext(inputFile)[0] + ".xml"
-    if not (path.exists(inputMetadata)):
-        LogWarning("Cannot find metadata for the input file!")
-        inputMetadata = ""
+    inputFile, inputMetadata = GetSpotFiles(options.Input)
 
     print "Building VRT from the files..."
     vrt = gdal.BuildVRT("", inputFile)
@@ -361,6 +374,51 @@ def BuildWarpOptions(options):
         warpOptions['dstSRS'] = options.Projection
 
     return warpOptions
+
+
+def GetLandsatFiles(input):
+    inputFiles = []
+
+    if path.isfile(input):
+        fileNamePrefix = path.basename(input)
+        if fileNamePrefix.upper().endswith("_MTL.TXT") or fileNamePrefix.upper().endswith("_BQA.TXT"):
+            fileNamePrefix = fileNamePrefix[:-8]
+        else:
+            fileNamePrefix = fileNamePrefix[:-7]
+
+        directoryName = path.dirname(input)
+        inputFiles = [path.join(directoryName, x) for x in os.listdir(directoryName) if x.startswith(fileNamePrefix)]
+    else:
+        inputFiles = [path.join(input, x) for x in os.listdir(input)]
+
+    return inputFiles
+
+
+def GetSpotFiles(input):
+    inputFile = ""
+
+    if path.isdir(input):
+        files = os.listdir(input)
+        for f in files:
+            if f.lower().endswith(".tif"):
+                inputFile = path.join(input, f)
+                break
+
+        if inputFile == "":
+            LogError("Cannot find the input image file!")
+    elif path.isfile(input):
+        inputFile = input
+        if not inputFile.lower().endswith(".tif"):
+            LogError("The specified input file is not a GeoTiff file!")
+    else:
+        LogError("The specified input file or folder does not exist!")
+
+    inputMetadata = path.splitext(inputFile)[0] + ".xml"
+    if not (path.exists(inputMetadata)):
+        LogWarning("Cannot find metadata for the input file!")
+        inputMetadata = ""
+
+    return inputFile, inputMetadata
 
 
 def LogError(text):
