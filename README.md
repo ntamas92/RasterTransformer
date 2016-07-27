@@ -54,7 +54,7 @@ root
         |       ├─── *_B01.jp2
         |       ├─── *_B02.jp2
         |       ...
-        └───subfolder2
+        ├───subfolder2
         │   ├───IMG_DATA
         |       ├─── *_B01.jp2
         |       ├─── *_B02.jp2
