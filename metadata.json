@@ -1,0 +1,64 @@
+{
+  "id": 0,
+  "name": "RasterTransformer",
+  "type": "Convert and merge raster data into a specific output format.",
+  "path": "RasterTransformer.py",
+  "language": "python",
+  "os": "linux",
+  "parameters": [
+    {
+      "id": "input",
+      "name": "Input",
+      "description": "Specifies the path of the input file or folder.",
+      "type": "input",
+      "cardinality": "1..1",
+      "data_type": "2D multi-channel image",
+      "label": "-i"
+    },
+    {
+      "id": "output_image",
+      "name": "OutputImage",
+      "description": "Specifies the path of the output file or folder.",
+      "type": "output",
+      "cardinality": "1..1",
+      "data_type": "2D multi-channel image",
+      "label": "-o"
+    },
+    {
+      "id": "sensor_format",
+      "name": "Sensor",
+      "description": "Specifies the input sensor.",
+      "type": "argument",
+      "cardinality": "1..1",
+      "data_type": "string",
+      "label": "-s"
+    },
+    {
+      "id": "output_format",
+      "name": "OutputFormat",
+      "description": "Specifies the format of the output.",
+      "type": "argument",
+      "cardinality": "0..1",
+      "data_type": "string",
+      "label": "-f"
+    },
+    {
+      "id": "projection",
+      "name": "Projection",
+      "description": "Specifies the target projection.",
+      "type": "argument",
+      "cardinality": "0..1",
+      "data_type": "string",
+      "label": "-p"
+    },
+    {
+      "id": "local_execution",
+      "name": "LocalExecution",
+      "description": "Specifies whether the conversion should be executed in a local temp directory.",
+      "type": "argument",
+      "cardinality": "0..1",
+      "data_type": "boolean",
+      "label": "--local-execution"
+    }
+  ]
+}
