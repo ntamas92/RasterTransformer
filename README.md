@@ -39,6 +39,7 @@ A docker image from the project can be created in a straightforward manner using
 
 [-f, --outputformat]      The output format of the image (GeoTiff, Erdas). Default: GeoTiff.
 [-p, --projection]        The target projection (EPSG code or full WKT representation).
+[--local-execution]       Indicates whether the conversion should be executed in a local temp directory.
 ```
 
 #### Dataset information:
