@@ -7,6 +7,7 @@ import argparse
 import re
 import tempfile
 import shutil
+import zipfile
 
 class ImageFormat:
     """ Represents an image format. """
@@ -100,15 +101,24 @@ def main():
     if not (path.exists(args.Input)):
         LogError("The specified input does not exist!")
 
-    tempInput, tempOutput = "", ""
-    originalInput, originalOutput = "", ""
+    if path.isfile(args.Input) and path.splitext(args.Input)[1].lower() == ".zip": # Extracting input from zip file to a temp folder.
+        print "Extracting input from .zip file to a temporary folder..."
+        tempInput = tempfile.mkdtemp()
+        zip_ref = zipfile.ZipFile(args.Input, 'r')
+        zip_ref.extractall(tempInput)
+        zip_ref.close()
+        args.Input = tempInput
 
-    if args.LocalExecution:
-        tempInput, tempOutput = CopyContentToTemp(args)
+        if args.LocalExecution:
+            originalOutput = args.Output
+            args.Output = tempfile.mkdtemp()
 
+    elif args.LocalExecution:
+        print "Copying the content to a temporary folder..."
+        tempInput = CopyContentToTemp(args)
         originalOutput = args.Output
         args.Input = tempInput
-        args.Output = tempOutput
+        args.Output = tempfile.mkdtemp()
 
     try:
         if args.Sensor == Sensor.Sentinel_2:
@@ -123,19 +133,22 @@ def main():
         LogError("Exception occurred during execution:" + str(ex))
 
     if args.LocalExecution:
+        print "Copying the result from the temporary folder to the specified output..."
+
         if not path.exists(originalOutput) and originalOutput.endswith(os.sep):
             os.makedirs(originalOutput)
 
-        for outputFile in [path.join(tempOutput, x) for x in os.listdir(tempOutput)]:
+        for outputFile in [path.join(args.Output, x) for x in os.listdir(args.Output)]:
             shutil.copy(outputFile, originalOutput)
 
         shutil.rmtree(tempInput)
-        shutil.rmtree(tempOutput)
+        shutil.rmtree(args.Output)
+
+    print "Done."
 
 
 def CopyContentToTemp(options):
     tempInput = tempfile.mkdtemp()
-    tempOutput = tempfile.mkdtemp()
 
     if options.Sensor == Sensor.Sentinel_2:
         if path.isfile(options.Input):
@@ -155,7 +168,7 @@ def CopyContentToTemp(options):
         shutil.copy(file, tempInput)
         shutil.copy(metadata, tempInput)
 
-    return tempInput, tempOutput
+    return tempInput
 
 
 def ConvertFromSentinel(options):
@@ -350,8 +363,6 @@ def ProduceOutput(options, outputFile, vrts, inputMetadata=None, outputMetadata=
     if inputMetadata is not None and inputMetadata != "":
         print "Copying metadata file to the specified output..."
         copyfile(inputMetadata, outputMetadata)
-
-    print "Done."
 
 
 def CreateOutputPath(options):
