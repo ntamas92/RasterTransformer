@@ -69,3 +69,7 @@ root
 - **Landsat**: In a Landsat dataset, each band is stored in different files. The input can be a file from the dataset or the containing folder. The file with the `_MTL.txt` suffix will be chosen for the metadata file.
 
 - **SPOT**: A SPOT dataset contains all information in one GeoTiff file. The input can be the GeoTiff file, or the containing folder. The file with the same name as the input will be chosen as the metadata file. 
+
+#### Zipped input
+
+The script is capable of extracting and converting from a zipped dataset if it is provided as the input.
