@@ -8,6 +8,8 @@ import re
 import tempfile
 import shutil
 import zipfile
+from distutils import dir_util
+
 
 class ImageFormat:
     """ Represents an image format. """
@@ -103,6 +105,12 @@ def main():
 
     if path.isfile(args.Input) and path.splitext(args.Input)[1].lower() == ".zip": # Extracting input from zip file to a temp folder.
         print "Extracting input from .zip file to a temporary folder..."
+
+        # The name of the zip will be the output filename if no filename was specified
+        if path.isdir(args.Output) or args.Output.endswith(os.sep):
+            outputFileName = path.splitext(path.basename(args.Input))[0] + ImageFormat.Extension(args.OutputFormat)
+            args.Output = path.join(args.Output, outputFileName)
+
         tempInput = tempfile.mkdtemp()
         zip_ref = zipfile.ZipFile(args.Input, 'r')
         zip_ref.extractall(tempInput)
@@ -119,6 +127,11 @@ def main():
         originalOutput = args.Output
         args.Input = tempInput
         args.Output = tempfile.mkdtemp()
+
+    # We have to propagate the provided output filename to the temp path to produce the correct name.
+    if args.LocalExecution:
+        if not (path.isdir(originalOutput) or originalOutput.endswith(os.sep)):
+            args.Output = path.join(args.Output, path.basename(originalOutput))
 
     try:
         if args.Sensor == Sensor.Sentinel_2:
@@ -138,8 +151,13 @@ def main():
         if not path.exists(originalOutput) and originalOutput.endswith(os.sep):
             os.makedirs(originalOutput)
 
-        for outputFile in [path.join(args.Output, x) for x in os.listdir(args.Output)]:
-            shutil.copy(outputFile, originalOutput)
+        if not path.isdir(originalOutput):
+            originalOutput = path.dirname(originalOutput)
+
+        if not path.isdir(args.Output):
+            args.Output = path.dirname(args.Output)
+
+        dir_util.copy_tree(args.Output, originalOutput)
 
         shutil.rmtree(tempInput)
         shutil.rmtree(args.Output)
@@ -156,7 +174,7 @@ def CopyContentToTemp(options):
         else:
             folderToCopy = options.Input
 
-        shutil.copytree(folderToCopy, tempInput)
+        dir_util.copy_tree(folderToCopy, tempInput)
     elif options.Sensor == Sensor.Landsat:
         filesToCopy = GetLandsatFiles(options.Input)
 
@@ -202,6 +220,8 @@ def ConvertFromSentinelTile(options):
         outputFileNameWithoutExtension = path.splitext(firstFileName)[0]
 
         outputFile = path.join(options.Output, outputFileNameWithoutExtension + ImageFormat.Extension(options.OutputFormat))
+    else:
+        outputFile = options.Output
 
     inputMetadata = path.join(options.Input, "metadata.xml")
     outputMetadata = None
