@@ -453,8 +453,11 @@ def GetSpotFiles(input):
 
     inputMetadata = path.splitext(inputFile)[0] + ".xml"
     if not (path.exists(inputMetadata)):
-        LogWarning("Cannot find metadata for the input file!")
-        inputMetadata = ""
+        defaultMetadata = "metadata.dim"
+        inputMetadata = path.join(path.dirname(inputFile), defaultMetadata)
+        if not path.exists(inputMetadata):
+            LogWarning("Cannot find metadata for the input file!")
+            inputMetadata = ""
 
     return inputFile, inputMetadata
 
