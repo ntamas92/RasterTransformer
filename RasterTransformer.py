@@ -100,6 +100,9 @@ def main():
     args.Sensor = Sensor.GetSensorFromString(args.Sensor)
     args.OutputFormat = ImageFormat.GetImageFormatFromString(args.OutputFormat)
 
+    tempInput = ""
+    tempOutput = ""
+
     if not (path.exists(args.Input)):
         LogError("The specified input does not exist!")
 
@@ -119,14 +122,16 @@ def main():
 
         if args.LocalExecution:
             originalOutput = args.Output
-            args.Output = tempfile.mkdtemp()
+            tempOutput = tempfile.mkdtemp()
+            args.Output = tempOutput
 
     elif args.LocalExecution:
         print "Copying the content to a temporary folder..."
         tempInput = CopyContentToTemp(args)
-        originalOutput = args.Output
         args.Input = tempInput
-        args.Output = tempfile.mkdtemp()
+        originalOutput = args.Output
+        tempOutput = tempfile.mkdtemp()
+        args.Output = tempOutput
 
     # We have to propagate the provided output filename to the temp path to produce the correct name.
     if args.LocalExecution:
@@ -159,8 +164,10 @@ def main():
 
         dir_util.copy_tree(args.Output, originalOutput)
 
+    if tempInput != "":
         shutil.rmtree(tempInput)
-        shutil.rmtree(args.Output)
+    if tempOutput != "":
+        shutil.rmtree(tempOutput)
 
     print "Done."
 
